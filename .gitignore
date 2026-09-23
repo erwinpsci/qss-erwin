@@ -8,3 +8,21 @@
 # RStudio files
 .Rproj.user/
 .DS_Store
+
+# Textbook PDFs and archives (prevent uploading copyrighted book)
+[0-9].*.pdf
+*Table of Contents*.pdf
+*Introduction*.pdf
+*Causality*.pdf
+*Measurement*.pdf
+*Prediction*.pdf
+*Discovery*.pdf
+*Probability*.pdf
+*Uncertainty*.pdf
+*Next and Index*.pdf
+*.zip
+
+# Cloud sync artifacts
+Icon?
+.dropbox
+.onedrive
