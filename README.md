@@ -1,59 +1,75 @@
-# QSS (Quantitative Social Science) [![Build Status](https://travis-ci.org/kosukeimai/qss.svg?branch=master)](https://travis-ci.org/kosukeimai/qss)
-Supplementary Materials for the book,
-**[Quantitative Social Science: An Introduction](http://press.princeton.edu/titles/11025.html)**,
-published by Princeton University Press in 2017.  See the [book website](http://qss.princeton.press/).  It is
-also available for purchase at vendors like
-[Amazon](https://www.amazon.com/Quantitative-Social-Science-Kosuke-Imai/dp/0691175462). Also included are materials for **[Quantitative Social Science: An Introduction in tidyverse](https://qss.princeton.press/)**, published by Princeton University Press in 2022. All tidyverse versions contain "-tidy" in their file names. 
+# QSS Study & Python Replication Lab
 
-The book is based on the teaching philosophy summarized in the talk I
-gave at the Nuffield Foundation's
-[Q-Step Programme](http://www.nuffieldfoundation.org/q-step) in 2015: 
-[slides](http://imai.princeton.edu/talk/files/Q-Step15.pdf) 
+Personal study repository and empirical replication lab for **[Quantitative Social Science: An Introduction in tidyverse](https://press.princeton.edu/books/hardcover/9780691222448/quantitative-social-science)** (Kosuke Imai & Nora Webb Williams, Princeton University Press, 2022).
 
-This repository contains the data sets and **R** scripts (available in .R, .Rmd, and .pdf formats) for all of the chapters:
+## Core Objective
 
-1. [Introduction](INTRO)
-2. [Causality](CAUSALITY)
-3. [Measurement](MEASUREMENT)
-4. [Prediction](PREDICTION)
-5. [Discovery](DISCOVERY)
-6. [Probability](PROBABILITY)
-7. [Uncertainty](UNCERTAINTY)
+1. **Substantive Mastery**: Deep comprehension of causal inference frameworks, identification strategies (RCT, DID, RDD, IV), measurement, prediction, discovery, probability, and uncertainty principles presented in the textbook.
+2. **Dual-Stack Translation (R → Python)**: Systematically replicate the authors' original R/tidyverse empirical pipelines using modern Python scientific packages (`pandas`, `numpy`, `statsmodels`, `scipy`, `seaborn`/`matplotlib`, `scikit-learn`), bridging causal inference theory into an active Python production stack.
+3. **Dedicated Study Companion**: Grounded Q&A and text-search augmented via private Google NotebookLM integration (see [`NOTEBOOK.md`](NOTEBOOK.md)).
 
-In addition, the repository contains:
+---
 
-1. Errata ([QSS](errata/QSSerrata.pdf), [QSStidy](errata/QSS_tidyverse_errata.pdf))
-2. [Sample course syllabi](syllabus)
+## Repository Structure
 
+```
+qss-student/
+├── 1.INTRO/           # Introduction & computing basics (UN population data)
+├── 2.CAUSALITY/       # Causal inference, RCTs, selection bias (Resume audit, STAR, Minimum wage)
+├── 3.MEASUREMENT/     # Survey sampling, measurement error, scaling (Afrobarometer, ideology)
+├── 4.PREDICTION/      # Prediction, regression, classification (US elections, facial appearance)
+├── 5.DISCOVERY/       # Text analysis, clustering, network data (Federalist papers, Twitter)
+├── 6.PROBABILITY/     # Probability theory, Bayes rule, simulation (Election betting, voter fraud)
+├── 7.UNCERTAINTY/     # Standard errors, hypothesis tests, CI, power (MPs, China village election)
+├── errata/            # Errata records for base and tidyverse editions
+├── syllabus/          # Course syllabi reference
+├── NOTEBOOK.md        # Reference to private Google NotebookLM study notebook
+└── README.md
+```
 
-## R package `qss`
+Each chapter folder contains:
+- Raw empirical CSV / RData datasets.
+- Original base R scripts (`*.R`, `*.Rmd`, `*.pdf`).
+- Tidyverse R scripts (`*-tidy.R`, `*-tidy.Rmd`, `*-tidy.pdf`).
+- Custom Python replication scripts and interactive notebooks (`*.py`, `*.ipynb`).
 
-The data and code in this repository are also available as an
-[R package `qss`](https://github.com/kosukeimai/qss-package) 
-(see [the package website](https://kosukeimai.github.io/qss-package/)). The code is in 
-the form of vignettes. To install this package, use the following command:
+---
 
-    install.packages("devtools") # if you have not installed devtools package already
-    devtools::install_github("kosukeimai/qss-package", build_vignettes = TRUE)
-    
-Once the `qss` package is installed, you can use the data and vignette:
+## Python Environment Setup
 
-    library(qss)
-    data(package = "qss") # list all data sets
-    data(elections) # load the elections data
-    vignette(package = "qss") # list all vignettes
-    browseVignettes("qss") # list vignettes and R code
-    vignette("causality", package = "qss") # show the vignette for the Causality chapter
+All Python replications run in the project virtual environment:
 
-## Related repositories
+```bash
+/Users/haoxi-home/Developer/python_ml/.venv/bin/python
+```
 
-1. [swirl exercises `qss-swirl`](https://github.com/kosukeimai/qss-swirl)
-2. [Interactive Tutorials for QSS by Matt Blackwell](https://github.com/mattblackwell/qsslearnr)
-3. [R package `qss`](https://github.com/kosukeimai/qss-package) ([the package website](https://kosukeimai.github.io/qss-package/))
-4. [tidyverse code `qss-tidy` by Jeff Arnold (the starting point for the QSS: tidyverse version of the book)](https://github.com/jrnold/qss-tidy) 
-5. [R package `qss.student` for students by Will Lowe](https://conjugateprior.github.io/qss.student/) 
-6. [python code `qsspy` by Jeffrey Allen](https://github.com/jeffallen13/qsspy) 
-7. [instructors' materials `qss-inst`](https://github.com/kosukeimai/qss-inst)
-8. [Lecture slides for QSS](https://github.com/kosukeimai/qss-lecture)
+Core libraries utilized:
+- `pandas` / `numpy`: Data manipulation, vectorization, and simulation
+- `statsmodels` / `linearmodels`: OLS regressions, robust standard errors (HC1/HC2), hypothesis testing
+- `scipy.stats`: Probability distributions, critical values, and p-values
+- `matplotlib` / `seaborn`: Data visualization and diagnostic plots
+- `scikit-learn` / `nltk`: Document-term matrices and text analysis
 
-The last two repositories are private.  Instructors who wish access to these materials should either request access at the [book website](http://qss.princeton.press/) or email me. 
+---
+
+## Study Notebook Integration
+
+All 9 textbook chapters are ingested into a private Google NotebookLM instance:
+- **UUID:** `4466791f-3638-4c1d-b52a-c7f3f742896e`
+- **CLI Alias:** `qss`
+- **Documentation:** [`NOTEBOOK.md`](NOTEBOOK.md)
+
+Quick terminal query:
+```bash
+nlm notebook query qss "How does Chapter 2 define average treatment effect?"
+```
+
+---
+
+## Upstream & Reference Materials
+
+Adapted and customized from the official supplementary repository by [Kosuke Imai](https://github.com/kosukeimai/qss).
+- Official Book Website: [qss.princeton.press](https://qss.princeton.press/)
+- R Package: [`qss`](https://github.com/kosukeimai/qss-package)
+- Original Tidyverse Codebase: [`qss-tidy` by Jeff Arnold](https://github.com/jrnold/qss-tidy)
+- Prior Python Implementation: [`qsspy` by Jeffrey Allen](https://github.com/jeffallen13/qsspy)
