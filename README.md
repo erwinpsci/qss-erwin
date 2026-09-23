@@ -6,7 +6,6 @@ Personal study repository and empirical replication lab for **[Quantitative Soci
 
 1. **Substantive Mastery**: Deep comprehension of causal inference frameworks, identification strategies (RCT, DID, RDD, IV), measurement, prediction, discovery, probability, and uncertainty principles presented in the textbook.
 2. **Dual-Stack Translation (R → Python)**: Systematically replicate the authors' original R/tidyverse empirical pipelines using modern Python scientific packages (`pandas`, `numpy`, `statsmodels`, `scipy`, `seaborn`/`matplotlib`, `scikit-learn`), bridging causal inference theory into an active Python production stack.
-3. **Dedicated Study Companion**: Grounded Q&A and text-search augmented via private Google NotebookLM integration (see [`NOTEBOOK.md`](NOTEBOOK.md)).
 
 ---
 
@@ -23,7 +22,6 @@ qss-student/
 ├── 7.UNCERTAINTY/     # Standard errors, hypothesis tests, CI, power (MPs, China village election)
 ├── errata/            # Errata records for base and tidyverse editions
 ├── syllabus/          # Course syllabi reference
-├── NOTEBOOK.md        # Reference to private Google NotebookLM study notebook
 ├── PROGRESS.md        # Study progress tracker
 └── README.md
 ```
@@ -50,20 +48,6 @@ Core libraries utilized:
 - `scipy.stats`: Probability distributions, critical values, and p-values
 - `matplotlib` / `seaborn`: Data visualization and diagnostic plots
 - `scikit-learn` / `nltk`: Document-term matrices and text analysis
-
----
-
-## Study Notebook Integration
-
-All 9 textbook chapters are ingested into a private Google NotebookLM instance:
-- **UUID:** `4466791f-3638-4c1d-b52a-c7f3f742896e`
-- **CLI Alias:** `qss`
-- **Documentation:** [`NOTEBOOK.md`](NOTEBOOK.md)
-
-Quick terminal query:
-```bash
-nlm notebook query qss "How does Chapter 2 define average treatment effect?"
-```
 
 ---
 
