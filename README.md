@@ -24,6 +24,7 @@ qss-student/
 ├── errata/            # Errata records for base and tidyverse editions
 ├── syllabus/          # Course syllabi reference
 ├── NOTEBOOK.md        # Reference to private Google NotebookLM study notebook
+├── PROGRESS.md        # Study progress tracker
 └── README.md
 ```
 
