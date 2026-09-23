@@ -26,3 +26,8 @@
 Icon?
 .dropbox
 .onedrive
+
+# Personal records and local notes (private, not for public repo)
+PROGRESS.md
+NOTEBOOK.md
+*.local.md

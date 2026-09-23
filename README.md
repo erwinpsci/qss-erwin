@@ -22,7 +22,6 @@ qss-student/
 ├── 7.UNCERTAINTY/     # Standard errors, hypothesis tests, CI, power (MPs, China village election)
 ├── errata/            # Errata records for base and tidyverse editions
 ├── syllabus/          # Course syllabi reference
-├── PROGRESS.md        # Study progress tracker
 └── README.md
 ```
 
