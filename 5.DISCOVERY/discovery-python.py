@@ -35,17 +35,34 @@ nltk.download("stopwords", quiet=True)
 nltk.download("punkt_tab", quiet=True)
 
 stemmer = SnowballStemmer("english")
-BASE_DIR = os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else os.path.join(os.getcwd(), "qss-student", "5.DISCOVERY")
+
+# Robust directory resolution across CLI, VS Code Interactive, and Jupyter Notebook environments
+BASE_DIR = None
+for p in [
+    os.getcwd(),
+    os.path.join(os.getcwd(), "qss-student", "5.DISCOVERY"),
+    os.path.dirname(os.path.abspath(__file__)) if "__file__" in globals() else "",
+    "/Users/haoxi-home/Library/CloudStorage/OneDrive-UniversityofWaterloo/QSS-Tidyverse/qss-student/5.DISCOVERY"
+]:
+    if p and os.path.isdir(os.path.join(p, "federalist")):
+        BASE_DIR = os.path.abspath(p)
+        break
+
+if BASE_DIR is None:
+    raise FileNotFoundError("Could not locate the federalist corpus directory.")
+
+DIR_SOURCE = os.path.join(BASE_DIR, "federalist")
 
 # --- 5.1.1.2 Load Tidytext Stop-Word Lexicon (1,149 words) ---
 stop_words = None
 for p in [
     os.path.join(BASE_DIR, "tidytext_stop_words.csv"),
+    "tidytext_stop_words.csv",
     os.path.join(os.getcwd(), "tidytext_stop_words.csv"),
     os.path.join(os.getcwd(), "qss-student", "5.DISCOVERY", "tidytext_stop_words.csv"),
-    "tidytext_stop_words.csv"
+    "/Users/haoxi-home/Library/CloudStorage/OneDrive-UniversityofWaterloo/QSS-Tidyverse/qss-student/5.DISCOVERY/tidytext_stop_words.csv"
 ]:
-    if os.path.exists(p):
+    if p and os.path.exists(p):
         tidy_stops_df = pd.read_csv(p)
         stop_words = set(tidy_stops_df["word"].dropna().str.lower())
         break
@@ -59,11 +76,6 @@ if stop_words is None:
         stop_words = set(stopwords.words("english"))
 
 # --- 5.1.1.3 Raw Federalist Corpus Ingestion & Document ID Extraction ---
-LOCAL_DIR = os.path.join(BASE_DIR, "federalist")
-if not os.path.exists(LOCAL_DIR):
-    LOCAL_DIR = os.path.join(os.getcwd(), "qss-student", "5.DISCOVERY", "federalist")
-DIR_SOURCE = LOCAL_DIR if os.path.exists(LOCAL_DIR) else "/Users/haoxi-home/Desktop/因果推断/qss-erwin/DISCOVERY/federalist"
-
 file_names = sorted(
     f for f in os.listdir(DIR_SOURCE) if f.startswith("fp") and f.endswith(".txt")
 )
@@ -103,6 +115,10 @@ for _, row in corpus_df.iterrows():
         })
 
 tokens_raw = pd.DataFrame(rows)
+
+# Cache preprocessed tokens to disk for standalone interactive execution
+_cache_dir = BASE_DIR
+tokens_raw.to_pickle(os.path.join(_cache_dir, "tokens_raw.pkl"))
 
 # --- 5.1.1.5 Stop-Word Removal and Document Word Counts ---
 tokens = tokens_raw[~tokens_raw["word"].isin(stop_words)].copy()
@@ -313,35 +329,224 @@ print(
 #   tf per thousand words by author
 #   Linear regression: fit <- lm(author ~ upon + ..., data = ...)
 
-# TODO:
 # --- 5.1.4.1 Authorship Labeling & Stylometric Feature Selection ---
-# 1. Label known authors (Hamilton vs. Madison) and disputed essays (ids: 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 62, 63)
-# 2. Extract usage counts of function words: although, always, commonly, consequently, considerable, enough, there, upon, while, whilst
+# Standalone dependency loader for interactive execution
+if "tokens_raw" not in globals():
+    import os
+    import numpy as np
+    import pandas as pd
+    import statsmodels.api as sm
+    import matplotlib.pyplot as plt
 
-# --- 5.1.4.2 Compute Author-Level Word Rates per 1,000 Words ---
-# Calculate term frequency per 1,000 words by author across known essays
+    _search_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "tokens_raw.pkl")
+        if "__file__" in globals()
+        else "",
+        "tokens_raw.pkl",
+        "qss-student/5.DISCOVERY/tokens_raw.pkl",
+    ]
+    for _path in _search_paths:
+        if _path and os.path.exists(_path):
+            tokens_raw = pd.read_pickle(_path)
+            break
 
-# --- 5.1.4.3 Fit Linear Regression on Known Authorship Essays ---
-# Fit regression: Y ~ upon + ... where Y = +1 for Hamilton, -1 for Madison
+hamilton = [1, 6, 7, 8, 9, 11, 12, 13, 15, 16, 17] + list(range(21, 37)) + [59, 60, 61] + list(range(65, 86))
+madison = [10, 14] + list(range(37, 49)) + [58]
+jay = [2, 3, 4, 5, 64]
+joint = [18, 19, 20]
 
-# --- 5.1.4.4 Predict Authorship for Disputed Essays ---
-# Apply fitted weights to predict author for the 12 disputed essays
+STYLE_WORDS = [
+    "although", "always", "commonly", "consequently",
+    "considerable", "enough", "there", "upon",
+    "while", "whilst"
+]
+
+conditions = [
+    tokens_raw["new_id"].isin(hamilton),
+    tokens_raw["new_id"].isin(madison),
+    tokens_raw["new_id"].isin(jay),
+    tokens_raw["new_id"].isin(joint)
+]
+choices = ["Hamilton", "Madison", "Jay", "Joint"]
+tokens_raw["author"] = np.select(conditions, choices, default="Disputed")
+
+# --- 5.1.4.2 Compute Author-Level Word Rates per 1,000 Words (tfm) ---
+word_counts = tokens_raw.groupby(["author", "word"]).size().reset_index(name="n")
+author_totals = tokens_raw.groupby("author").size().rename("total")
+word_counts = word_counts.merge(author_totals, on="author")
+word_counts["tf_thou"] = word_counts["n"] / word_counts["total"] * 1000
+
+tfm_long = word_counts[word_counts["word"].isin(STYLE_WORDS)]
+tfm = tfm_long.pivot(index="author", columns="word", values="tf_thou").reindex(columns=STYLE_WORDS).fillna(0)
+
+print("\n--- tfm (Average Word Use per 1,000 Words by Author) ---")
+print(tfm.round(4))
+
+# --- 5.1.4.3 Document-Level Feature Matrix (reg_data) ---
+doc_word_counts = tokens_raw.groupby(["author", "new_id", "word"]).size().reset_index(name="n")
+doc_totals = tokens_raw.groupby(["author", "new_id"]).size().rename("total")
+doc_word_counts = doc_word_counts.merge(doc_totals, on=["author", "new_id"])
+doc_word_counts["tf_thou"] = doc_word_counts["n"] / doc_word_counts["total"] * 1000
+
+doc_style = doc_word_counts[doc_word_counts["word"].isin(STYLE_WORDS)]
+reg_data = doc_style.pivot_table(
+    index=["author", "new_id"], columns="word", values="tf_thou", fill_value=0
+).reset_index()
+
+for w in STYLE_WORDS:
+    if w not in reg_data.columns:
+        reg_data[w] = 0.0
+
+reg_data["author_outcome"] = np.where(
+    reg_data["author"] == "Hamilton", 1.0,
+    np.where(reg_data["author"] == "Madison", -1.0, np.nan)
+)
+
+# --- 5.1.4.4 Fit Linear Regression Model for Authorship (hm.fit) ---
+import statsmodels.api as sm
+
+known = reg_data.dropna(subset=["author_outcome"]).copy()
+X_vars = ["upon", "there", "consequently", "whilst"]
+X = sm.add_constant(known[X_vars])
+y = known["author_outcome"]
+
+hm_fit = sm.OLS(y, X).fit()
+print("\n--- Linear Regression Model (hm.fit) ---")
+print("Coefficients:")
+print(hm_fit.params.round(4))
+
+# --- 5.1.4.5 Standard Deviation of Fitted Values & Effect Size ---
+hm_fitted = hm_fit.fittedvalues
+sd_fitted = np.std(hm_fitted, ddof=1)
+print(f"\nStandard deviation of fitted values: {sd_fitted:.7f}")
+print(f"whilst coefficient magnitude: {abs(hm_fit.params['whilst']):.4f} (approx. 1 SD of fitted values)")
+
+# Cache reg_data for standalone interactive execution of downstream validation
+_cache_dir = BASE_DIR
+reg_data.to_pickle(os.path.join(_cache_dir, "reg_data.pkl"))
 
 
 # %% [code]
 # ------------------------------------------------------------------------------
-# 5.1.5 Cross-Validation
+# 5.1.5 Cross-Validation & Model Evaluation
 # ------------------------------------------------------------------------------
 # R equivalent:
-#   10-fold cross validation or leave-one-out cross validation
-#   Calculation of classification error rates
+#   author_data <- reg_data %>% add_predictions(hm.fit) %>% mutate(pred_author = if_else(pred >= 0, "Hamilton", "Madison"))
+#   author_data %>% filter(!is.na(author_outcome)) %>% group_by(author) %>% summarize(`Proportion Correct` = mean(author == pred_author))
+#   ham_mad <- filter(reg_data, !is.na(author_outcome))
+#   for (i in 1:n) { sub.fit <- lm(...); hm.classify[[i]] <- slice(ham_mad, i) %>% add_predictions(sub.fit) }
+#   bind_rows(hm.classify) %>% mutate(pred_author = if_else(pred >= 0, "Hamilton", "Madison")) %>% group_by(author) %>% summarize(`Proportion Correct` = mean(author == pred_author))
+#   ggplot(plot_data, aes(x = new_id, y = pred, color = author, shape = author)) + ...
 
-# TODO:
-# --- 5.1.5.1 Set Up Leave-One-Out Cross-Validation (LOOCV) Loop ---
-# Hold out one document at a time, fit linear regression on n-1 documents, predict held-out document
+# Standalone dependency loader for Section 5.1.5 interactive execution
+if "reg_data" not in globals() or "hm_fit" not in globals():
+    import os
+    import numpy as np
+    import pandas as pd
+    import statsmodels.api as sm
+    import matplotlib.pyplot as plt
 
-# --- 5.1.5.2 Evaluate Out-of-Sample Prediction Accuracy ---
-# Calculate classification error rate and confusion matrix
+    _cache_paths = [
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "reg_data.pkl")
+        if "__file__" in globals()
+        else "",
+        "reg_data.pkl",
+        "qss-student/5.DISCOVERY/reg_data.pkl",
+    ]
+    for _path in _cache_paths:
+        if _path and os.path.exists(_path):
+            reg_data = pd.read_pickle(_path)
+            break
+    X_vars = ["upon", "there", "consequently", "whilst"]
+    known_sub = reg_data.dropna(subset=["author_outcome"])
+    hm_fit = sm.OLS(known_sub["author_outcome"], sm.add_constant(known_sub[X_vars])).fit()
+
+# --- 5.1.5.1 In-Sample Prediction Accuracy ---
+reg_data_const = sm.add_constant(reg_data[X_vars], has_constant="add")
+reg_data["pred"] = hm_fit.predict(reg_data_const)
+reg_data["pred_author"] = np.where(reg_data["pred"] >= 0, "Hamilton", "Madison")
+
+in_sample = reg_data.dropna(subset=["author_outcome"]).copy()
+in_sample["correct"] = in_sample["author"] == in_sample["pred_author"]
+prop_correct = in_sample.groupby("author")["correct"].mean().rename("Proportion Correct")
+print("\n--- In-Sample Prediction Accuracy ---")
+print(prop_correct)
+
+# --- 5.1.5.2 Leave-One-Out Cross-Validation (LOOCV) Loop ---
+ham_mad = reg_data.dropna(subset=["author_outcome"]).copy().reset_index(drop=True)
+n_docs = len(ham_mad)
+cv_preds = []
+
+for i in range(n_docs):
+    train_fold = ham_mad.drop(index=i)
+    test_fold = ham_mad.iloc[[i]]
+    
+    X_train = sm.add_constant(train_fold[X_vars], has_constant="add")
+    y_train = train_fold["author_outcome"]
+    
+    fold_fit = sm.OLS(y_train, X_train).fit()
+    
+    X_test = sm.add_constant(test_fold[X_vars], has_constant="add")
+    pred_val = fold_fit.predict(X_test).iloc[0]
+    cv_preds.append(pred_val)
+
+ham_mad["cv_pred"] = cv_preds
+ham_mad["cv_pred_author"] = np.where(ham_mad["cv_pred"] >= 0, "Hamilton", "Madison")
+ham_mad["cv_correct"] = ham_mad["author"] == ham_mad["cv_pred_author"]
+
+# --- 5.1.5.3 Out-of-Sample Prediction Accuracy & Confusion Matrix ---
+loocv_accuracy = ham_mad.groupby("author")["cv_correct"].mean().rename("Proportion Correct")
+print("\n--- Leave-One-Out Cross-Validation (LOOCV) Accuracy ---")
+print(loocv_accuracy)
+
+cv_confusion = pd.crosstab(
+    ham_mad["author"],
+    ham_mad["cv_pred_author"],
+    rownames=["Actual Author"],
+    colnames=["Predicted Author"]
+)
+print("\n--- LOOCV Confusion Matrix ---")
+print(cv_confusion)
+
+overall_error = 1.0 - ham_mad["cv_correct"].mean()
+print(f"\nOverall LOOCV Classification Error Rate: {overall_error:.4f} ({ham_mad['cv_correct'].sum()}/{n_docs} correct)")
+
+# --- 5.1.5.4 Attribution of Disputed Federalist Papers ---
+disputed = reg_data[reg_data["author"] == "Disputed"].sort_values("new_id")
+print("\n--- Predictions for Disputed Federalist Papers ---")
+print(disputed[["new_id", "pred", "pred_author"]].to_string(index=False))
+
+# --- 5.1.5.5 Authorship Classification Plot (Figure 5.3 Replication) ---
+plot_data = reg_data[~reg_data["author"].isin(["Jay", "Joint"])].copy()
+
+plt.figure(figsize=(10, 5))
+plt.axhline(0, color="gray", linestyle="--", linewidth=1)
+
+styles = {
+    "Madison": {"color": "blue", "marker": "o"},
+    "Hamilton": {"color": "red", "marker": "s"},
+    "Disputed": {"color": "black", "marker": "^"},
+}
+
+for auth in ["Madison", "Hamilton", "Disputed"]:
+    grp = plot_data[plot_data["author"] == auth]
+    plt.scatter(
+        grp["new_id"],
+        grp["pred"],
+        color=styles[auth]["color"],
+        marker=styles[auth]["marker"],
+        label=auth,
+        alpha=0.85,
+        s=45
+    )
+
+plt.xlabel("Federalist Papers", fontsize=11)
+plt.ylabel("Predicted values", fontsize=11)
+plt.title("Authorship Prediction of Federalist Papers", fontsize=12, fontweight="bold")
+plt.legend(title="Author")
+plt.grid(True, linestyle=":", alpha=0.5)
+plt.tight_layout()
+plt.show()
 
 
 # ==============================================================================
