@@ -561,12 +561,31 @@ plt.show()
 #   florentine <- read_csv("florentine.csv")
 #   Adjacency matrix inspection and tie count per family
 
-# TODO:
 # --- 5.2.1.1 Ingest Florentine Network & Inspect Adjacency Matrix ---
-# 1. Load florentine.csv and verify symmetric adjacency matrix
+florentine_path = None
+for p in [
+    "florentine.csv",
+    os.path.join(os.getcwd(), "florentine.csv"),
+    os.path.join(os.getcwd(), "qss-student", "5.DISCOVERY", "florentine.csv"),
+    os.path.join(os.path.dirname(os.path.abspath(__file__)), "florentine.csv") if "__file__" in globals() else "",
+    "/Users/haoxi-home/Library/CloudStorage/OneDrive-UniversityofWaterloo/QSS-Tidyverse/qss-student/5.DISCOVERY/florentine.csv"
+]:
+    if p and os.path.exists(p):
+        florentine_path = p
+        break
+
+florentine = pd.read_csv(florentine_path)
+print("Florentine adjacency matrix shape:", florentine.shape)
+
+print("\nAdjacency (sub)matrix for the first 5 families [1:5, 1:5]:")
+print(florentine.iloc[0:5, 0:5])
 
 # --- 5.2.1.2 Degree and Connectivity Calculations ---
-# 2. Compute degree (tie counts) for each family (e.g., Medici)
+# Count direct ties per family by summing across columns (excluding the FAMILY label)
+florentine["connections"] = florentine.drop(columns=["FAMILY"]).sum(axis=1)
+
+print("\n--- Tie Counts (Connections) per Family ---")
+print(florentine[["FAMILY", "connections"]].to_string(index=False))
 
 
 # %% [code]
@@ -578,15 +597,68 @@ plt.show()
 #   degree(g), closeness(g), betweenness(g)
 #   plot(g)
 
-# TODO:
+import networkx as nx
+import matplotlib.pyplot as plt
+
 # --- 5.2.2.1 Construct Undirected Network Graph ---
-# 1. Construct NetworkX Graph (nx.from_pandas_adjacency) or igraph
+adj_df = florentine.drop(columns=["connections"], errors="ignore").set_index("FAMILY")
+families = adj_df.index.tolist()
+G = nx.from_pandas_adjacency(adj_df)
 
-# --- 5.2.2.2 Compute Centrality Metrics ---
-# 2. Calculate Degree Centrality, Closeness Centrality, Betweenness Centrality
+print(f"Network Graph: {G.number_of_nodes()} nodes, {G.number_of_edges()} edges")
 
-# --- 5.2.2.3 Visualize Network Topology ---
-# 3. Plot network topology with node sizes proportional to betweenness centrality
+# --- 5.2.2.2 Compute Centrality Metrics (Degree, Closeness, Betweenness) ---
+# 1. Degree
+degree_dict = dict(G.degree())
+print("\n--- Degree Centrality ---")
+print(pd.Series(degree_dict).sort_values(ascending=False))
+
+# 2. Closeness (R igraph convention: farness to disconnected node Pucci set to N = 16)
+closeness_dict = {}
+avg_edges_dict = {}
+for f in families:
+    if f == "PUCCI":
+        farness = 15 * 16
+    else:
+        spl = nx.single_source_shortest_path_length(G, f)
+        farness = sum(spl.values()) + 16
+    closeness_dict[f] = 1.0 / farness
+    avg_edges_dict[f] = farness / 15.0
+
+print("\n--- Closeness Centrality ---")
+print(pd.Series(closeness_dict).round(9))
+
+print("\n--- Average Shortest Path Hops: 1 / (Closeness * 15) ---")
+print(pd.Series(avg_edges_dict).round(6))
+
+# 3. Betweenness (Unnormalized to match R igraph)
+betweenness_dict = nx.betweenness_centrality(G, normalized=False)
+print("\n--- Betweenness Centrality ---")
+print(pd.Series(betweenness_dict).round(6))
+
+# --- 5.2.2.3 Visualize Network Centrality (Figure 5.2 Replication) ---
+pos = nx.spring_layout(G, seed=42)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+
+# Subplot 1: Closeness Centrality
+close_sizes = [closeness_dict[node] * 35000 for node in G.nodes()]
+nx.draw_networkx_nodes(G, pos, ax=axes[0], node_size=close_sizes, node_color="skyblue", edgecolors="black", linewidths=1.2)
+nx.draw_networkx_edges(G, pos, ax=axes[0], alpha=0.6, width=1.2)
+nx.draw_networkx_labels(G, pos, ax=axes[0], font_size=8, font_weight="bold")
+axes[0].set_title("Closeness", fontsize=13, fontweight="bold")
+axes[0].axis("off")
+
+# Subplot 2: Betweenness Centrality
+bet_sizes = [betweenness_dict[node] * 50 + 100 for node in G.nodes()]
+nx.draw_networkx_nodes(G, pos, ax=axes[1], node_size=bet_sizes, node_color="salmon", edgecolors="black", linewidths=1.2)
+nx.draw_networkx_edges(G, pos, ax=axes[1], alpha=0.6, width=1.2)
+nx.draw_networkx_labels(G, pos, ax=axes[1], font_size=8, font_weight="bold")
+axes[1].set_title("Betweenness", fontsize=13, fontweight="bold")
+axes[1].axis("off")
+
+plt.tight_layout()
+plt.show()
 
 
 # %% [code]
@@ -594,15 +666,31 @@ plt.show()
 # 5.2.3 Twitter Following Network
 # ------------------------------------------------------------------------------
 # R equivalent:
-#   read_csv("twitter-following.csv")
-#   read_csv("twitter-senator.csv")
+#   twitter <- read.csv("twitter-following.csv", stringsAsFactors = FALSE)
+#   senator <- read.csv("twitter-senator.csv", stringsAsFactors = FALSE)
+#   twitter.adj <- graph.adjacency(twitter.adj, mode = "directed", diag = FALSE)
 
-# TODO:
-# --- 5.2.3.1 Ingest Directed Edgelist & Node Metadata ---
-# 1. Load twitter-following.csv (directed edgelist) and twitter-senator.csv (node metadata)
+follow = pd.read_csv(resolve_path("twitter-following.csv"))
+senator = pd.read_csv(resolve_path("twitter-senator.csv"))
 
-# --- 5.2.3.2 Merge Node Attributes ---
-# 2. Merge node attributes (Party: Democrat vs Republican)
+# 构建有向图 (Directed Graph)
+G_twitter = nx.DiGraph()
+
+# 1. 注入 91 名参议员节点及其党派属性
+for _, row in senator.iterrows():
+    G_twitter.add_node(
+        row["screen_name"],
+        name=row["name"],
+        party=row["party"],
+        state=row["state"]
+    )
+
+# 2. 注入 3859 条有向边: following (关注者 i) -> followed (被关注者 j)
+for _, row in follow.iterrows():
+    G_twitter.add_edge(row["following"], row["followed"])
+
+print(f"Nodes (Senators): {G_twitter.number_of_nodes()}")
+print(f"Edges (Following ties): {G_twitter.number_of_edges()}")
 
 
 # %% [code]
@@ -610,21 +698,152 @@ plt.show()
 # 5.2.4 Directed Graph and Centrality (PageRank)
 # ------------------------------------------------------------------------------
 # R equivalent:
-#   graph_from_data_frame(following, directed = TRUE, vertices = senator)
-#   in-degree, out-degree
-#   page_rank(g)
-#   plot network colored by party
+#   senator$indegree <- degree(twitter.adj, mode = "in")
+#   senator$outdegree <- degree(twitter.adj, mode = "out") 
+#   plot(closeness(twitter.adj, mode = "in"), closeness(twitter.adj, mode = "out"))
+#   plot(betweenness(twitter.adj, directed = TRUE), betweenness(twitter.adj, directed = FALSE))
+#   senator$pagerank <- page.rank(twitter.adj)$vector
+#   plot(twitter.adj, vertex.size = senator$pagerank * 1000)
+#   PageRank iterative function with while loop
 
-# TODO:
-# --- 5.2.4.1 Construct Directed Graph & Degree Distributions ---
-# 1. Construct directed graph (nx.DiGraph)
-# 2. Compute in-degree and out-degree distributions by party
+# 1. 计算入度与出度 (In-degree & Out-degree)
+senator["indegree"] = senator["screen_name"].map(dict(G_twitter.in_degree()))
+senator["outdegree"] = senator["screen_name"].map(dict(G_twitter.out_degree()))
 
-# --- 5.2.4.2 Compute PageRank Centrality ---
-# 3. Run PageRank algorithm (nx.pagerank)
+print("=== Table 5.4: 3 Greatest Indegree (受关注最高 - 声望焦点) ===")
+top_in = senator.sort_values("indegree", ascending=False)[["screen_name", "name", "party", "state", "indegree", "outdegree"]].head(3)
+print(top_in.to_string(index=False))
 
-# --- 5.2.4.3 Visualize Polarization and Influential Senators ---
-# 4. Visualize senator network with party colors (Blue = Dem, Red = Rep) and node size = PageRank
+print("\n=== Table 5.4: 3 Greatest Outdegree (关注他人最多 - 社交活跃) ===")
+top_out = senator.sort_values("outdegree", ascending=False)[["screen_name", "name", "party", "state", "indegree", "outdegree"]].head(3)
+print(top_out.to_string(index=False))
+
+# 2. 计算有向紧密中心度 (Closeness: Incoming vs Outgoing)
+n_nodes = len(senator)
+spl = dict(nx.all_pairs_shortest_path_length(G_twitter))
+
+closeness_in = {}
+closeness_out = {}
+for u in G_twitter.nodes():
+    d_out = [spl[u].get(v, n_nodes) for v in G_twitter.nodes() if v != u]
+    closeness_out[u] = 1.0 / sum(d_out) if sum(d_out) > 0 else 0
+
+for v in G_twitter.nodes():
+    d_in = [spl[u].get(v, n_nodes) for u in G_twitter.nodes() if u != v]
+    closeness_in[v] = 1.0 / sum(d_in) if sum(d_in) > 0 else 0
+
+senator["closeness_in"] = senator["screen_name"].map(closeness_in)
+senator["closeness_out"] = senator["screen_name"].map(closeness_out)
+
+# 3. 计算有向与无向介数中心度 (Betweenness: Directed vs Undirected)
+senator["betweenness_dir"] = senator["screen_name"].map(
+    nx.betweenness_centrality(G_twitter, normalized=False)
+)
+senator["betweenness_undir"] = senator["screen_name"].map(
+    nx.betweenness_centrality(G_twitter.to_undirected(), normalized=False)
+)
+
+# 4. 计算 PageRank 权重
+pr_dict = nx.pagerank(G_twitter, alpha=0.85)
+senator["pagerank"] = senator["screen_name"].map(pr_dict)
+
+print("\n=== Top 5 PageRank Senators (高权威核心议员) ===")
+print(senator.sort_values("pagerank", ascending=False)[["name", "party", "state", "pagerank"]].head(5).to_string(index=False))
+
+# 5. 可视化对比: Figure 5.3 (Closeness & Betweenness 对比散点图)
+fig, axes = plt.subplots(1, 2, figsize=(14, 5.5))
+color_map = {"R": "red", "D": "blue", "I": "black"}
+marker_map = {"R": "o", "D": "^", "I": "x"}
+
+# Panel A: Closeness
+for party in ["R", "D", "I"]:
+    sub = senator[senator["party"] == party]
+    axes[0].scatter(
+        sub["closeness_in"], sub["closeness_out"],
+        c=color_map[party], marker=marker_map[party],
+        s=45, alpha=0.85, label=f"Party {party}"
+    )
+axes[0].set_title("Closeness (Figure 5.3 Left)", fontsize=13, fontweight="bold")
+axes[0].set_xlabel("Incoming path (收敛距离)", fontsize=11)
+axes[0].set_ylabel("Outgoing path (广播距离)", fontsize=11)
+axes[0].legend(frameon=True)
+axes[0].grid(True, linestyle="--", alpha=0.4)
+
+# Panel B: Betweenness
+for party in ["R", "D", "I"]:
+    sub = senator[senator["party"] == party]
+    axes[1].scatter(
+        sub["betweenness_dir"], sub["betweenness_undir"],
+        c=color_map[party], marker=marker_map[party],
+        s=45, alpha=0.85, label=f"Party {party}"
+    )
+axes[1].set_title("Betweenness (Figure 5.3 Right)", fontsize=13, fontweight="bold")
+axes[1].set_xlabel("Directed (有向介数)", fontsize=11)
+axes[1].set_ylabel("Undirected (无向介数)", fontsize=11)
+axes[1].legend(frameon=True)
+axes[1].grid(True, linestyle="--", alpha=0.4)
+
+plt.tight_layout()
+plt.show()
+
+# 6. 全网拓扑力导向可视化 (Figure on p. 253: Partisan Polarization Network)
+pos = nx.spring_layout(G_twitter, k=0.35, iterations=60, seed=42)
+node_colors = [
+    "#d62728" if G_twitter.nodes[n]["party"] == "R"
+    else "#1f77b4" if G_twitter.nodes[n]["party"] == "D"
+    else "#2ca02c"
+    for n in G_twitter.nodes()
+]
+node_sizes = [pr_dict[n] * 35000 for n in G_twitter.nodes()]
+
+plt.figure(figsize=(10, 8.5))
+nx.draw_networkx_edges(
+    G_twitter, pos,
+    edge_color="#aaaaaa", alpha=0.12, width=0.4, arrows=False
+)
+nx.draw_networkx_nodes(
+    G_twitter, pos,
+    node_color=node_colors, node_size=node_sizes,
+    alpha=0.88, edgecolors="white", linewidths=0.8
+)
+plt.plot([], [], marker="o", color="#d62728", linestyle="None", markersize=10, label="Republican (R)")
+plt.plot([], [], marker="o", color="#1f77b4", linestyle="None", markersize=10, label="Democrat (D)")
+plt.plot([], [], marker="o", color="#2ca02c", linestyle="None", markersize=10, label="Independent (I)")
+plt.legend(frameon=True, fontsize=11, loc="upper right")
+plt.title("Senate Twitter Following Network (p. 253)\nNode Size = PageRank, Node Color = Party", fontsize=13, fontweight="bold")
+plt.axis("off")
+plt.tight_layout()
+plt.show()
+
+# 7. 原书 4-节点微型网络 PageRank 迭代算法 (Gauss-Seidel 就地更新)
+nodes_toy = 4
+adj_toy = np.array([
+    [0, 1, 0, 1],
+    [1, 0, 1, 0],
+    [0, 1, 0, 0],
+    [0, 1, 0, 0]
+])
+
+def PageRank_algorithm(n, A, d, pr):
+    deg = A.sum(axis=1)
+    for j in range(n):
+        pr[j] = (1 - d) / n + d * np.sum(A[:, j] * pr / deg)
+    return pr
+
+d = 0.85
+pr_toy = np.full(nodes_toy, 1.0 / nodes_toy)
+diff = 100.0
+step = 0
+
+while diff > 0.001:
+    pr_prev = pr_toy.copy()
+    pr_toy = PageRank_algorithm(nodes_toy, adj_toy, d, pr_toy)
+    diff = np.max(np.abs(pr_toy - pr_prev))
+    step += 1
+
+print(f"\n=== 原书 4-节点微型网络 PageRank 迭代收敛结果 (第 {step} 轮收敛) ===")
+for i, val in enumerate(pr_toy, start=1):
+    print(f"Node {i}: {val:.7f}")
 
 
 # ==============================================================================
